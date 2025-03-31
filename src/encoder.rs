@@ -2,20 +2,11 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use std::io::Write;
 
-use crate::huffman::HuffmanTree;
-
-pub enum HuffmanCode<T> {
-    HuffmanClassicalCode {
-        tree: HuffmanTree<T>
-    },
-    HuffmanCanonicalCode {
-        lengths: Vec<(T, usize)>
-    }
-}
+use crate::huffman::{HuffmanNode, HuffmanTree};
 
 pub trait HuffmanContext<T> {
     fn encode(&mut self, input: &[T]);
-    fn decode(&mut self, input: &[u8]);
+    fn decode(&mut self, input: &[u8]) -> Vec<T>;
 }
 
 pub struct HuffmanClassicalCoder<T, W: Write> {
@@ -43,11 +34,37 @@ impl<T: Eq + Hash + Copy + Clone + Debug, W: Write> HuffmanContext<T> for Huffma
             }
         }
 
-        self.writer.flush();
+        match self.writer.flush() {
+            Ok(_) => (),
+            Err(_) => panic!("Error flushing writer"),
+        }
     }
 
-    fn decode(&mut self, input: &[u8]) {
-        todo!()
+    fn decode(&mut self, input: &[u8]) -> Vec<T> {
+        let mut decoded_symbols = Vec::<T>::new();
+        if let Some(root) = &self.tree.root {
+            let mut node = root;
+
+            for &bit in input {
+                    if bit == 0 {
+                        if let HuffmanNode::Internal { left, .. } = node {
+                            node = left;
+                        }
+                    } else {
+                        if let HuffmanNode::Internal { right, .. } = node {
+                            node = right;
+                        }
+                    }
+
+                    if let HuffmanNode::Leaf { symbol, .. } = node {
+                        decoded_symbols.push(*symbol);
+                        node = root;
+                    }
+                }
+
+            }
+
+        return decoded_symbols;
     }
 }
 
@@ -76,10 +93,13 @@ impl<T: Eq + Hash + Copy + Clone + Debug, W: Write> HuffmanContext<T> for Huffma
             }
         }
 
-        self.writer.flush();
+        match self.writer.flush() {
+            Ok(_) => (),
+            Err(_) => panic!("Error flushing writer"),
+        }
     }
 
-    fn decode(&mut self, input: &[u8]) {
+    fn decode(&mut self, input: &[u8]) -> Vec<T> {
         todo!()
     }
 }
@@ -101,9 +121,10 @@ mod tests {
 
         coder.encode(input);
 
-        let encoded = coder.writer.into_inner();
+        let encoded = coder.writer.clone().into_inner();
+        let decoded = coder.decode(&encoded);
 
-        assert_eq!(encoded, vec![1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0]) 
+        assert_eq!(input, decoded)
     }
 
     #[test]
@@ -115,8 +136,9 @@ mod tests {
 
         coder.encode(input);
 
-        let encoded = coder.writer.into_inner();
+        let encoded = coder.writer.clone().into_inner();
+        let decoded = coder.decode(&encoded);
 
-        assert_eq!(encoded, vec![1, 0, 0, 0, 1, 1, 1, 1, 0, 1, 0, 1, 0])
+        assert_eq!(input, decoded)
     }
 }

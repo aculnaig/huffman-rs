@@ -124,10 +124,7 @@ impl<T: Eq + Ord + Clone + Hash + Copy + Debug> HuffmanTree<T> {
             .map(|(symbol, code)| (*symbol, code.len()))
             .collect::<Vec<_>>();
 
-        canonical_codes.sort_by(|a, b| {
-            a.1.cmp(&b.1)
-                .then_with(|| a.0.cmp(&b.0))
-        });
+        canonical_codes.sort_by_key(|&(symbol, len)| (len, symbol));
 
         let mut current_code = vec![0; canonical_codes.first().map_or(0, |&(_, len)| len)];
         let mut current_length = current_code.len();
