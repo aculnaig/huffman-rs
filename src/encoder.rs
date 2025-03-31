@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{collections::HashMap, fmt::Debug};
 use std::hash::Hash;
 use std::io::Write;
 
@@ -24,8 +24,6 @@ impl<T: Eq + Hash + Copy + Clone + Debug, W: Write> HuffmanContext<T> for Huffma
     fn encode(&mut self, input: &[T]) {
         for symbol in input {
             if let Some(code) = self.tree.codes.get(symbol) {
-
-                println!("{:?}", code);
 
                 match self.writer.write(&code) {
                     Ok(_) => (),
@@ -84,8 +82,6 @@ impl<T: Eq + Hash + Copy + Clone + Debug, W: Write> HuffmanContext<T> for Huffma
         for symbol in input {
             if let Some(code) = self.tree.canonical_codes.get(symbol) {
 
-                println!("{:?}", code);
-
                 match self.writer.write(&code) {
                     Ok(_) => (),
                     Err(_) => panic!("Error writing symbol {:?}", symbol),
@@ -100,7 +96,39 @@ impl<T: Eq + Hash + Copy + Clone + Debug, W: Write> HuffmanContext<T> for Huffma
     }
 
     fn decode(&mut self, input: &[u8]) -> Vec<T> {
-        todo!()
+        let mut codes = HashMap::new();
+        let mut code = 0;
+        let mut current_length = input[0];
+
+        for (i, &symbol) in self.tree.symbols.iter().enumerate() {
+            if let Some(&length) = self.tree.canonical_codes_length.get(&symbol) {
+                if length > current_length {
+                    code <<= length - current_length;
+                    current_length = length;
+                }
+            }
+
+            codes.insert(code, symbol);
+            code += 1;
+        }
+
+        let mut decoded_symbols = Vec::new();
+        let mut code_buffer = 0;
+        let mut code_length = 0;
+
+        for &bit in input {
+            code_buffer <<= 1;
+            code_buffer |= bit;
+            code_length += 1;
+
+            if let Some(&symbol) = codes.get(&code_buffer) {
+                decoded_symbols.push(symbol);
+                code_buffer = 0;
+                code_length = 0;
+            }
+        }
+
+        return decoded_symbols
     }
 }
 

@@ -1,4 +1,4 @@
-use std::{collections::HashMap, fmt::Debug, hash::Hash};
+use std::{collections::HashMap, fmt::Debug, future, hash::Hash};
 
 pub enum HuffmanNode<T> {
     Leaf {
@@ -50,6 +50,8 @@ pub struct HuffmanTree<T> {
     pub root: Option<HuffmanNode<T>>,
     pub codes: HashMap<T, Vec<u8>>,
     pub canonical_codes: HashMap<T, Vec<u8>>,
+    pub canonical_codes_length: HashMap<T, u8>,
+    pub symbols: Vec<T>,
 }
 
 impl<T: Eq + Ord + Clone + Hash + Copy + Debug> HuffmanTree<T> {
@@ -82,10 +84,13 @@ impl<T: Eq + Ord + Clone + Hash + Copy + Debug> HuffmanTree<T> {
             root: heap.pop().map(|std::cmp::Reverse(node)| node),
             codes: HashMap::new(),
             canonical_codes: HashMap::new(),
+            canonical_codes_length: HashMap::new(),
+            symbols: Vec::new(),
         };
 
         huffman_tree.generate_codes();
         huffman_tree.generate_canonical_codes();
+        huffman_tree.generate_symbols();
 
         huffman_tree
     }
@@ -125,6 +130,10 @@ impl<T: Eq + Ord + Clone + Hash + Copy + Debug> HuffmanTree<T> {
             .collect::<Vec<_>>();
 
         canonical_codes.sort_by_key(|&(symbol, len)| (len, symbol));
+        self.canonical_codes_length = canonical_codes
+            .iter()
+            .map(|&(symbol, len)| (symbol, len as u8))
+            .collect::<HashMap<_, _>>();
 
         let mut current_code = vec![0; canonical_codes.first().map_or(0, |&(_, len)| len)];
         let mut current_length = current_code.len();
@@ -140,6 +149,28 @@ impl<T: Eq + Ord + Clone + Hash + Copy + Debug> HuffmanTree<T> {
             self.canonical_codes.insert(symbol, current_code.to_vec());
 
             Self::add_one(&mut current_code);
+        }
+    }
+
+    fn generate_symbols(&mut self) {
+        let mut symbols = Vec::new();
+
+        if let Some(root) = &self.root {
+            Self::generate_symbols_recursive(root, &mut symbols);
+        }
+
+        self.symbols = symbols;
+    }
+
+    fn generate_symbols_recursive(node: &HuffmanNode<T>, symbols: &mut Vec<T>) {
+        match node {
+            HuffmanNode::Internal { ref left, ref right, .. } => {
+                Self::generate_symbols_recursive(left, symbols);
+                Self::generate_symbols_recursive(right, symbols);
+            }
+            HuffmanNode::Leaf { symbol, .. } => {
+                symbols.push(*symbol);
+            }
         }
     }
 
